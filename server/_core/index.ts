@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerAnonymousAuthRoutes } from "./anonymous-auth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -31,41 +32,24 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // -----------------------------
-  // Body parsers
-  // -----------------------------
+  // Middleware for parsing request bodies
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // =============================
-  // ✅ AUTH ENTRY POINT
+  // ANONYMOUS AUTH ROUTES
   // =============================
-  app.get("/app-auth", (req, res) => {
-    res.status(200).send(`
-      <!doctype html>
-      <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <title>Auth</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </head>
-        <body style="font-family: sans-serif; padding: 40px">
-          <h2>Auth entry point is working ✅</h2>
-          <p>You can now connect OAuth or login logic here.</p>
-        </body>
-      </html>
-    `);
-  });
+  // Registers /app-auth (login), /app-auth/logout
+  registerAnonymousAuthRoutes(app);
 
-  // -----------------------------
-  // OAuth callback routes
-  // (/api/oauth/callback)
-  // -----------------------------
+  // =============================
+  // OAuth callback routes (optional)
+  // =============================
   registerOAuthRoutes(app);
 
-  // -----------------------------
+  // =============================
   // tRPC API
-  // -----------------------------
+  // =============================
   app.use(
     "/api/trpc",
     createExpressMiddleware({
@@ -74,18 +58,18 @@ async function startServer() {
     })
   );
 
-  // -----------------------------
+  // =============================
   // Frontend (Vite / Static)
-  // -----------------------------
+  // =============================
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // -----------------------------
+  // =============================
   // Start server
-  // -----------------------------
+  // =============================
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
